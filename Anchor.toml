@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-peng_pool = "PengPooL11111111111111111111111111111111111"
+peng_pool = "Mh2yn8cR99LYd88UcihsCnbXatss89VKxYZU9W6WQEj"
 
 [programs.devnet]
-peng_pool = "PengPooL11111111111111111111111111111111111"
+peng_pool = "Mh2yn8cR99LYd88UcihsCnbXatss89VKxYZU9W6WQEj"
 
 [registry]
 url = "https://api.apr.dev"
