@@ -16,19 +16,22 @@ export class SolanaService {
 
   private loadAuthorityKeypair() {
     try {
-      if (fs.existsSync(CONFIG.AUTHORITY_KEYPAIR_PATH)) {
+      if (CONFIG.AUTHORITY_PRIVATE_KEY) {
+        // Parse from environment variable string (e.g., "[12,34,...]")
+        const secret = Uint8Array.from(JSON.parse(CONFIG.AUTHORITY_PRIVATE_KEY));
+        this.authorityKeypair = Keypair.fromSecretKey(secret);
+        console.log(`Authority keypair loaded from AUTHORITY_PRIVATE_KEY: ${this.authorityKeypair.publicKey.toBase58()}`);
+      } else if (CONFIG.AUTHORITY_KEYPAIR_PATH && fs.existsSync(CONFIG.AUTHORITY_KEYPAIR_PATH)) {
         const raw = fs.readFileSync(CONFIG.AUTHORITY_KEYPAIR_PATH, "utf-8");
         const secret = Uint8Array.from(JSON.parse(raw));
         this.authorityKeypair = Keypair.fromSecretKey(secret);
-        console.log(`Authority keypair loaded: ${this.authorityKeypair.publicKey.toBase58()}`);
+        console.log(`Authority keypair loaded from file: ${this.authorityKeypair.publicKey.toBase58()}`);
       } else {
-        // Fallback: generate ephemeral dev keypair for development
-        this.authorityKeypair = Keypair.generate();
-        console.warn(`Authority file not found at ${CONFIG.AUTHORITY_KEYPAIR_PATH}. Generated temporary ephemeral authority: ${this.authorityKeypair.publicKey.toBase58()}`);
+        console.log("No authority keypair configured in environment variables. Authority write actions disabled.");
       }
     } catch (err) {
       console.error("Error loading authority keypair:", err);
-      this.authorityKeypair = Keypair.generate();
+      this.authorityKeypair = null;
     }
   }
 

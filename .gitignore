@@ -1,2 +1,18 @@
-node_modules
+# Node / Dependencies
+node_modules/
+dist/
+
+# Environment Variables & Secrets (CRITICAL: Never commit to Git)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+id.json
+
+# Vercel & Deployments
+.vercel/
+
+# Solana / Anchor build artifacts
+target/
 scripts/
