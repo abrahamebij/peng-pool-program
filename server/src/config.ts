@@ -11,7 +11,7 @@ const sessionSecret = process.env.JWT_SECRET || crypto.randomBytes(32).toString(
 export const CONFIG = {
   PORT: parseInt(process.env.PORT || "3001", 10),
   SOLANA_RPC_URL: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
-  PROGRAM_ID: new PublicKey(process.env.PROGRAM_ID || "Mh2yn8cR99LYd88UcihsCnbXatss89VKxYZU9W6WQEj"),
+  PROGRAM_ID: new PublicKey(process.env.PROGRAM_ID || "2G9MvvQTCjFmNn3Bm98ibJ34cCsW2eXEoieWtsRiRnpf"),
   AUTHORITY_PRIVATE_KEY: process.env.AUTHORITY_PRIVATE_KEY || "",
   AUTHORITY_KEYPAIR_PATH: process.env.AUTHORITY_KEYPAIR_PATH || "",
   MIN_RUN_TIME_MS: 15_000, // 15 seconds physical minimum

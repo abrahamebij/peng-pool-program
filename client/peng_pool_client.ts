@@ -3,7 +3,7 @@ import { PublicKey, TransactionInstruction, Connection } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { BN } from "@coral-xyz/anchor";
 
-export const PROGRAM_ID = new PublicKey("Mh2yn8cR99LYd88UcihsCnbXatss89VKxYZU9W6WQEj");
+export const PROGRAM_ID = new PublicKey("2G9MvvQTCjFmNn3Bm98ibJ34cCsW2eXEoieWtsRiRnpf");
 
 export interface RoundInfo {
   roundId: number;

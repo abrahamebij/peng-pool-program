@@ -6,7 +6,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("Mh2yn8cR99LYd88UcihsCnbXatss89VKxYZU9W6WQEj");
+declare_id!("2G9MvvQTCjFmNn3Bm98ibJ34cCsW2eXEoieWtsRiRnpf");
 
 #[program]
 pub mod peng_pool {
