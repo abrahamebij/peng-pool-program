@@ -37,4 +37,7 @@ pub enum PengPoolError {
 
     #[msg("Calculation overflow occurred.")]
     MathOverflow,
+
+    #[msg("Invalid pool type for this instruction (native SOL vs SPL token mismatch).")]
+    InvalidPoolType,
 }

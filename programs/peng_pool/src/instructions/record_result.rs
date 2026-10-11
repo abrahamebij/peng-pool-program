@@ -70,32 +70,45 @@ pub fn handler(ctx: Context<RecordRunResult>, is_win: bool, time_ms: u32) -> Res
             );
         }
 
-        // Update top-10 leaderboard
-        let new_entry = LeaderboardEntry {
-            player: ctx.accounts.player.key(),
-            time_ms,
-            recorded_at: clock.unix_timestamp,
-        };
-
-        let mut entries = leaderboard.entries.clone();
-        entries.push(new_entry);
-        // Sort lowest time first
-        entries.sort_by_key(|e| e.time_ms);
-        if entries.len() > MAX_LEADERBOARD_ENTRIES {
-            entries.truncate(MAX_LEADERBOARD_ENTRIES);
+        // Update Top-50 leaderboard with wins and losses (deduplicate so each player holds their personal best)
+        if let Some(existing) = leaderboard.entries.iter_mut().find(|e| e.player == ctx.accounts.player.key()) {
+            if time_ms < existing.time_ms {
+                existing.time_ms = time_ms;
+                existing.recorded_at = clock.unix_timestamp;
+            }
+            existing.wins = player_stats.wins;
+            existing.losses = player_stats.losses;
+        } else {
+            leaderboard.entries.push(LeaderboardEntry {
+                player: ctx.accounts.player.key(),
+                time_ms,
+                wins: player_stats.wins,
+                losses: player_stats.losses,
+                recorded_at: clock.unix_timestamp,
+            });
         }
-        leaderboard.entries = entries;
+        leaderboard.entries.sort_by_key(|e| e.time_ms);
+        if leaderboard.entries.len() > MAX_LEADERBOARD_ENTRIES {
+            leaderboard.entries.truncate(MAX_LEADERBOARD_ENTRIES);
+        }
 
         msg!(
-            "Run WON by {}: {} ms. Personal best: {} ms. Active tickets remaining: {}",
+            "Run WON by {}: {} ms. Personal best: {} ms (Wins: {}, Losses: {}). Active tickets remaining: {}",
             ctx.accounts.player.key(),
             time_ms,
             player_stats.best_time_ms,
+            player_stats.wins,
+            player_stats.losses,
             player_stats.active_tickets
         );
     } else {
         pool_round.total_losses = pool_round.total_losses.saturating_add(1);
         player_stats.losses = player_stats.losses.saturating_add(1);
+
+        // Keep leaderboard entry loss count accurate if this player is on the leaderboard
+        if let Some(existing) = leaderboard.entries.iter_mut().find(|e| e.player == ctx.accounts.player.key()) {
+            existing.losses = player_stats.losses;
+        }
 
         msg!(
             "Run LOST (caught/failed) by {}. Total losses: {}. Active tickets remaining: {}",

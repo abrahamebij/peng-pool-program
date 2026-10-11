@@ -51,6 +51,7 @@ pub fn handler(ctx: Context<ClaimPrize>) -> Result<()> {
     let pool_round = &mut ctx.accounts.pool_round;
 
     require!(clock.unix_timestamp >= pool_round.end_time, PengPoolError::RoundNotEnded);
+    require!(!pool_round.is_native(), PengPoolError::InvalidPoolType);
     require!(!pool_round.prize_claimed, PengPoolError::PrizeAlreadyClaimed);
     require!(pool_round.current_winner != Pubkey::default(), PengPoolError::NoWinnerRecorded);
 

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-pub const MAX_LEADERBOARD_ENTRIES: usize = 10;
+pub const MAX_LEADERBOARD_ENTRIES: usize = 50;
 pub const WINNER_PERCENTAGE: u64 = 90;
 pub const PROTOCOL_FEE_PERCENTAGE: u64 = 10;
 
@@ -17,13 +17,13 @@ pub struct PoolRound {
     pub start_time: i64,
     /// Unix timestamp when the round closes (start_time + 7 days)
     pub end_time: i64,
-    /// Entry bet in token base units (e.g., DevCoin or $SKR)
+    /// Entry bet in token base units (e.g. lamports for SOL, base units for $SKR)
     pub entry_fee: u64,
-    /// SPL Token mint for the entry bet
+    /// SPL Token mint for entry bet (Pubkey::default() indicates Native SOL)
     pub token_mint: Pubkey,
-    /// PDA token account holding the pooled escrow funds
+    /// PDA account holding the pooled escrow funds
     pub vault: Pubkey,
-    /// Total accumulated tokens in the prize pool
+    /// Total accumulated tokens/lamports in the prize pool
     pub total_pot: u64,
     /// Best (lowest) win time recorded this round in milliseconds
     pub best_time_ms: u32,
@@ -39,7 +39,7 @@ pub struct PoolRound {
     pub is_finalized: bool,
     /// Whether the 90% prize payout has been claimed
     pub prize_claimed: bool,
-    /// PDA bump for the token vault
+    /// PDA bump for the vault
     pub vault_bump: u8,
     /// PDA bump for this pool round account
     pub round_bump: u8,
@@ -66,12 +66,19 @@ impl PoolRound {
         1 +  // vault_bump
         1 +  // round_bump
         64;  // padding for future upgrades
+
+    /// Returns true if this pool uses native SOL instead of an SPL token
+    pub fn is_native(&self) -> bool {
+        self.token_mint == Pubkey::default()
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq)]
 pub struct LeaderboardEntry {
     pub player: Pubkey,
     pub time_ms: u32,
+    pub wins: u32,
+    pub losses: u32,
     pub recorded_at: i64,
 }
 
@@ -83,9 +90,10 @@ pub struct Leaderboard {
 }
 
 impl Leaderboard {
+    // 8 + 8 + 4 + (50 * (32 + 4 + 4 + 4 + 8)) + 1 + 32 = 2653 bytes
     pub const LEN: usize = 8 + // discriminator
         8 + // round_id
-        4 + (MAX_LEADERBOARD_ENTRIES * (32 + 4 + 8)) + // vector prefix + entries
+        4 + (MAX_LEADERBOARD_ENTRIES * (32 + 4 + 4 + 4 + 8)) + // vector prefix + 50 entries (52 bytes each)
         1 + // bump
         32; // padding
 }
@@ -114,4 +122,18 @@ impl PlayerStats {
         4 +  // active_tickets
         1 +  // bump
         32;  // padding
+}
+
+#[account]
+#[derive(Default)]
+pub struct SolVault {
+    pub round_id: u64,
+    pub bump: u8,
+}
+
+impl SolVault {
+    pub const LEN: usize = 8 + // discriminator
+        8 + // round_id
+        1 + // bump
+        32; // padding
 }

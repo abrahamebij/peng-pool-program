@@ -51,6 +51,7 @@ pub fn handler(ctx: Context<EnterRun>) -> Result<()> {
     let pool_round = &mut ctx.accounts.pool_round;
 
     require!(clock.unix_timestamp < pool_round.end_time, PengPoolError::RoundEnded);
+    require!(!pool_round.is_native(), PengPoolError::InvalidPoolType);
 
     // Transfer entry bet from player to pool vault PDA
     let cpi_accounts = Transfer {

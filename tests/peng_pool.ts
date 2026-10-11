@@ -270,13 +270,17 @@ describe("peng_pool integration tests", () => {
     expect(pool.currentWinner.toBase58()).to.equal(player2.publicKey.toBase58());
     expect(pool.totalPot.toNumber()).to.equal(entryFee.toNumber() * 3); // 3 runs entered total
 
-    // Verify leaderboard rankings: Rank 1 is Player 2, Rank 2 is Player 1
+    // Verify leaderboard rankings: Rank 1 is Player 2, Rank 2 is Player 1 (with wins & losses)
     const lb = await program.account.leaderboard.fetch(leaderboardPda);
     expect(lb.entries.length).to.equal(2);
     expect(lb.entries[0].player.toBase58()).to.equal(player2.publicKey.toBase58());
     expect(lb.entries[0].timeMs).to.equal(45100);
+    expect(lb.entries[0].wins).to.equal(1);
+    expect(lb.entries[0].losses).to.equal(0);
     expect(lb.entries[1].player.toBase58()).to.equal(player1.publicKey.toBase58());
     expect(lb.entries[1].timeMs).to.equal(62400);
+    expect(lb.entries[1].wins).to.equal(1);
+    expect(lb.entries[1].losses).to.equal(1);
   });
 
   it("6. Round ends: Winner claims 90% of pool, 10% fee to protocol", async () => {
@@ -311,5 +315,100 @@ describe("peng_pool integration tests", () => {
     const pool = await program.account.poolRound.fetch(poolRoundPda);
     expect(pool.prizeClaimed).to.be.true;
     expect(pool.isFinalized).to.be.true;
+  });
+
+  it("7. Native SOL Pool: Initializes, enters run, records result, and claims prize", async () => {
+    const solRoundId = new BN(2);
+    const solEntryFee = new BN(50_000_000); // 0.05 SOL in lamports
+    const solDuration = new BN(4); // 4 seconds
+
+    const roundIdBuffer = solRoundId.toArrayLike(Buffer, "le", 8);
+    const [solPoolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("pool_round"), roundIdBuffer],
+      program.programId
+    );
+    const [solVaultPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault_sol"), roundIdBuffer],
+      program.programId
+    );
+    const [solLbPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("leaderboard"), roundIdBuffer],
+      program.programId
+    );
+    const [player1SolStatsPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("player_stats"), roundIdBuffer, player1.publicKey.toBuffer()],
+      program.programId
+    );
+
+    // Initialize Native SOL pool
+    await program.methods
+      .initializePoolSol(solRoundId, solEntryFee, solDuration)
+      .accounts({
+        authority: authority.publicKey,
+        feeRecipient: feeRecipient.publicKey,
+        poolRound: solPoolPda,
+        vault: solVaultPda,
+        leaderboard: solLbPda,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .rpc();
+
+    const solPool = await program.account.poolRound.fetch(solPoolPda);
+    expect(solPool.roundId.toNumber()).to.equal(2);
+    expect(solPool.entryFee.toNumber()).to.equal(solEntryFee.toNumber());
+    expect(solPool.tokenMint.toBase58()).to.equal(PublicKey.default.toBase58()); // default = Native SOL
+
+    // Player 1 enters Native SOL run
+    await program.methods
+      .enterRunSol()
+      .accounts({
+        player: player1.publicKey,
+        poolRound: solPoolPda,
+        vault: solVaultPda,
+        playerStats: player1SolStatsPda,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([player1])
+      .rpc();
+
+    // Record win (38200 ms)
+    await program.methods
+      .recordRunResult(true, 38200)
+      .accounts({
+        player: player1.publicKey,
+        poolRound: solPoolPda,
+        playerStats: player1SolStatsPda,
+        leaderboard: solLbPda,
+      })
+      .signers([player1])
+      .rpc();
+
+    const lbSol = await program.account.leaderboard.fetch(solLbPda);
+    expect(lbSol.entries.length).to.equal(1);
+    expect(lbSol.entries[0].player.toBase58()).to.equal(player1.publicKey.toBase58());
+    expect(lbSol.entries[0].timeMs).to.equal(38200);
+    expect(lbSol.entries[0].wins).to.equal(1);
+
+    // Wait for round duration (4s)
+    await new Promise((r) => setTimeout(r, 5000));
+
+    // Claim prize in Native SOL
+    const player1BalBefore = await provider.connection.getBalance(player1.publicKey);
+    await program.methods
+      .claimPrizeSol()
+      .accounts({
+        caller: authority.publicKey,
+        poolRound: solPoolPda,
+        vault: solVaultPda,
+        winner: player1.publicKey,
+        feeRecipient: feeRecipient.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const player1BalAfter = await provider.connection.getBalance(player1.publicKey);
+    const expectedSolPrize = Math.floor((solEntryFee.toNumber() * 90) / 100);
+    expect(player1BalAfter - player1BalBefore).to.equal(expectedSolPrize);
   });
 });

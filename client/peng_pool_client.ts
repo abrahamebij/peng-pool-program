@@ -3,7 +3,7 @@ import { PublicKey, TransactionInstruction, Connection } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { BN } from "bn.js";
 
-export const PROGRAM_ID = new PublicKey("PengPooL11111111111111111111111111111111111");
+export const PROGRAM_ID = new PublicKey("Mh2yn8cR99LYd88UcihsCnbXatss89VKxYZU9W6WQEj");
 
 export interface RoundInfo {
   roundId: number;
@@ -18,6 +18,7 @@ export interface RoundInfo {
   totalLosses: number;
   isFinalized: boolean;
   prizeClaimed: boolean;
+  isNative: boolean;
 }
 
 export interface LeaderboardItem {
@@ -25,6 +26,8 @@ export interface LeaderboardItem {
   player: string;
   timeMs: number;
   formattedTime: string;
+  wins: number;
+  losses: number;
   recordedAt: number;
 }
 
@@ -49,6 +52,14 @@ export class PengPoolClient {
     const bn = typeof roundId === "number" ? new BN(roundId) : roundId;
     return PublicKey.findProgramAddressSync(
       [Buffer.from("vault"), bn.toArrayLike(Buffer, "le", 8)],
+      this.programId
+    );
+  }
+
+  getVaultSolPda(roundId: number | BN): [PublicKey, number] {
+    const bn = typeof roundId === "number" ? new BN(roundId) : roundId;
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from("vault_sol"), bn.toArrayLike(Buffer, "le", 8)],
       this.programId
     );
   }
