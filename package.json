@@ -4,8 +4,8 @@
   "description": "Peng-Balls Solana Mobile Weekly Prize Pool & Leaderboard",
   "license": "MIT",
   "scripts": {
-    "start": "ts-node -p ./tsconfig.json server/src/index.ts",
-    "dev": "ts-node -p ./tsconfig.json server/src/index.ts",
+    "start": "ts-node server/src/index.ts",
+    "dev": "ts-node server/src/index.ts",
     "test": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts",
     "lint": "prettier --check \"tests/**/*.ts\" \"client/**/*.ts\"",
     "format": "prettier --write \"tests/**/*.ts\" \"client/**/*.ts\""

@@ -1,7 +1,7 @@
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import fs from "fs";
 import { CONFIG } from "../config";
-import { PengPoolClient, RoundInfo, LeaderboardItem } from "../../client/peng_pool_client";
+import { PengPoolClient, RoundInfo, LeaderboardItem } from "../../../client/peng_pool_client";
 
 export class SolanaService {
   readonly connection: Connection;
