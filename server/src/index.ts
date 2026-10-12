@@ -23,7 +23,7 @@ app.get("/health", (_req, res) => {
 
 // Demo link redirect 
 app.get("/video", (_req, res) => {
-  res.redirect("https://youtube.com")
+  res.redirect("https://youtu.be/qEhcvXdnvpg")
 });
 
 // Digital Asset Links for Android MWA & Phantom Domain Verification
