@@ -21,6 +21,23 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// Digital Asset Links for Android MWA & Phantom Domain Verification
+app.get("/.well-known/assetlinks.json", (_req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.json([
+    {
+      relation: ["delegate_permission/common.handle_all_urls"],
+      target: {
+        namespace: "android_app",
+        package_name: "com.abrahamebij.pengballs",
+        sha256_cert_fingerprints: [
+          "91:76:DE:5F:E3:68:EB:7F:82:AE:51:DD:EF:17:D7:74:06:3F:E8:09:B4:CB:D7:A9:A8:1F:19:97:F1:64:A0:C4"
+        ]
+      }
+    }
+  ]);
+});
+
 // API Routes
 app.use("/api/pools", poolsRouter);
 app.use("/api/runs", runsRouter);
