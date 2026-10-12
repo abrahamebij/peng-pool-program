@@ -21,6 +21,11 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// Demo link redirect 
+app.get("/video", (_req, res) => {
+  res.redirect("https://youtube.com")
+});
+
 // Digital Asset Links for Android MWA & Phantom Domain Verification
 app.get("/.well-known/assetlinks.json", (_req, res) => {
   res.setHeader("Content-Type", "application/json");
