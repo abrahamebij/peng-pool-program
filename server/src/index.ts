@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
 import { CONFIG } from "./config";
-import poolsRouter from "./routes/poolsRoute";
-import runsRouter from "./routes/runsRoute";
+import poolsRouter, { handleGetStandings } from "./routes/poolsRoute";
+import runsRouter, { handleEnterPool, handleSubmitRun } from "./routes/runsRoute";
 
 const app = express();
 
@@ -20,9 +20,17 @@ app.get("/health", (_req, res) => {
   });
 });
 
-// Routes
+// Direct API routes & aliases for game client
 app.use("/api/pools", poolsRouter);
 app.use("/api/runs", runsRouter);
+
+// Aliases matching Godot client endpoints:
+// GET /api/standings (with ?roundId=...)
+app.get("/api/standings", handleGetStandings);
+// POST /api/enter
+app.post("/api/enter", handleEnterPool);
+// POST /api/submit-run
+app.post("/api/submit-run", handleSubmitRun);
 
 // Start Server (only when running standalone locally, not in Vercel serverless)
 if (!process.env.VERCEL) {

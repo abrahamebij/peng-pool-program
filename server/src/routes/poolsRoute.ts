@@ -80,20 +80,10 @@ function getShorthand(key: string): string {
   return `${key.slice(0, 4)}...${key.slice(-4)}`;
 }
 
-/**
- * GET /api/pools - Returns all active weekly community pools
- */
-router.get("/", (_req: Request, res: Response) => {
-  res.json({ success: true, pools: POOLS });
-});
-
-/**
- * GET /api/pools/:roundId/standings - Returns Top 50 standings for a given pool
- */
-router.get("/:roundId/standings", (req: Request, res: Response) => {
-  const roundIdParam = req.params.roundId;
+export function handleGetStandings(req: Request, res: Response) {
+  const roundIdParam = req.params.roundId || req.query.roundId;
   const roundIdStr = Array.isArray(roundIdParam) ? roundIdParam[0] : roundIdParam;
-  const roundId = parseInt(roundIdStr || "1", 10);
+  const roundId = parseInt(roundIdStr as string || "1", 10);
   const userPubkey = typeof req.query.user === "string" ? req.query.user : "";
 
   const pool = POOLS.find((p) => p.roundId === roundId) || POOLS[0];
@@ -136,6 +126,18 @@ router.get("/:roundId/standings", (req: Request, res: Response) => {
     pool,
     standings,
   });
+}
+
+/**
+ * GET /api/pools - Returns all active weekly community pools
+ */
+router.get("/", (_req: Request, res: Response) => {
+  res.json({ success: true, pools: POOLS });
 });
+
+/**
+ * GET /api/pools/:roundId/standings - Returns Top 50 standings for a given pool
+ */
+router.get("/:roundId/standings", handleGetStandings);
 
 export default router;

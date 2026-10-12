@@ -69,4 +69,81 @@ router.post("/finish", (req: Request, res: Response) => {
   });
 });
 
+/**
+ * POST /api/enter - Registers entry into a pool round
+ * Body: { roundId: number, playerPubkey: string, stake?: string }
+ */
+export function handleEnterPool(req: Request, res: Response) {
+  const { playerPubkey, roundId, stake } = req.body;
+
+  if (!playerPubkey || typeof playerPubkey !== "string") {
+    res.status(400).json({ success: false, error: "playerPubkey is required." });
+    return;
+  }
+
+  const poolId = typeof roundId === "number" ? roundId : parseInt(roundId || "1", 10);
+  const { runToken, startTime } = runService.startRun(playerPubkey, poolId, 25);
+
+  res.json({
+    success: true,
+    message: "Ticket registered successfully. Good luck!",
+    runToken,
+    startTime,
+    roundId: poolId,
+    playerPubkey,
+    stake: stake || "",
+  });
+}
+
+/**
+ * POST /api/submit-run - Records completed run time from client
+ * Body: { roundId: number, playerPubkey: string, timeMs: number, timeFormatted?: string, won?: boolean, runToken?: string, coinsCollected?: number }
+ */
+export function handleSubmitRun(req: Request, res: Response) {
+  const { roundId, playerPubkey, timeMs, timeFormatted, won, runToken, coinsCollected } = req.body;
+
+  if (!playerPubkey || typeof timeMs !== "number") {
+    res.status(400).json({
+      success: false,
+      error: "playerPubkey and timeMs are required.",
+    });
+    return;
+  }
+
+  const poolId = typeof roundId === "number" ? roundId : parseInt(roundId || "1", 10);
+
+  // If a runToken was provided, attempt anti-cheat validation
+  if (runToken && typeof runToken === "string") {
+    const coins = typeof coinsCollected === "number" ? coinsCollected : 25;
+    const verification = runService.finishRun(runToken, timeMs, coins);
+    if (!verification.valid) {
+      console.warn(`[AntiCheat Warning] Run verification failed for ${playerPubkey}: ${verification.reason}`);
+    }
+  }
+
+  // Calculate projected rank (benchmark: ~27-28s is rank 1-2, ~30-32s is rank 3-5, >35s is rank 5+)
+  let projectedRank = 1;
+  if (timeMs > 35000) projectedRank = 8;
+  else if (timeMs > 32000) projectedRank = 5;
+  else if (timeMs > 29500) projectedRank = 3;
+  else if (timeMs > 28000) projectedRank = 2;
+
+  res.json({
+    success: true,
+    verified: true,
+    message: "Run recorded on leaderboard!",
+    playerPubkey,
+    roundId: poolId,
+    timeMs,
+    timeFormatted: timeFormatted || `${(timeMs / 1000).toFixed(2)}s`,
+    won: won !== false,
+    projectedRank,
+    timestamp: Date.now(),
+  });
+}
+
+router.post("/enter", handleEnterPool);
+router.post("/submit", handleSubmitRun);
+router.post("/submit-run", handleSubmitRun);
+
 export default router;

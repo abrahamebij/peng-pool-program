@@ -16,7 +16,7 @@ export class SolanaService {
           params: [pubkey, { encoding: "base64" }],
         }),
       });
-      const data = await response.json();
+      const data = (await response.json()) as any;
       return data?.result?.value || null;
     } catch (err) {
       console.error(`Error querying RPC for ${pubkey}:`, err);
