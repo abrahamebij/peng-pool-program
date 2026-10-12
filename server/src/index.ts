@@ -14,7 +14,7 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     service: "peng-pool-backend",
-    programId: CONFIG.PROGRAM_ID.toBase58(),
+    programId: CONFIG.PROGRAM_ID,
     cluster: CONFIG.SOLANA_RPC_URL,
     timestamp: new Date().toISOString(),
   });
@@ -24,12 +24,12 @@ app.get("/health", (_req, res) => {
 app.use("/api/pools", poolsRouter);
 app.use("/api/runs", runsRouter);
 
-// Start Server (only when not running inside Vercel serverless)
+// Start Server (only when running standalone locally, not in Vercel serverless)
 if (!process.env.VERCEL) {
   app.listen(CONFIG.PORT, () => {
     console.log(`[PengPool Backend] Server running on http://localhost:${CONFIG.PORT}`);
     console.log(`[PengPool Backend] Solana RPC: ${CONFIG.SOLANA_RPC_URL}`);
-    console.log(`[PengPool Backend] Program ID: ${CONFIG.PROGRAM_ID.toBase58()}`);
+    console.log(`[PengPool Backend] Program ID: ${CONFIG.PROGRAM_ID}`);
   });
 }
 
