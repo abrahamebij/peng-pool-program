@@ -3,6 +3,7 @@ import cors from "cors";
 import { CONFIG } from "./config";
 import poolsRouter, { handleGetStandings } from "./routes/poolsRoute";
 import runsRouter, { handleEnterPool, handleSubmitRun } from "./routes/runsRoute";
+import accountRouter from "./routes/accountRoute";
 
 const app = express();
 
@@ -20,9 +21,10 @@ app.get("/health", (_req, res) => {
   });
 });
 
-// Direct API routes & aliases for game client
+// API Routes
 app.use("/api/pools", poolsRouter);
 app.use("/api/runs", runsRouter);
+app.use("/api/account", accountRouter);
 
 // Aliases matching Godot client endpoints:
 // GET /api/standings (with ?roundId=...)

@@ -1,12 +1,76 @@
 import { Router, Request, Response } from "express";
 import { runService } from "../services/runService";
-import { store, formatTime } from "../store";
+import { poolStore } from "../services/poolStore";
 
 const router = Router();
 
+export function handleEnterPool(req: Request, res: Response) {
+  const { roundId, playerPubkey, txSignature } = req.body;
+  const poolId = typeof roundId === "number" ? roundId : parseInt(String(roundId || "1"), 10);
+
+  if (!playerPubkey) {
+    res.status(400).json({ success: false, error: "playerPubkey is required." });
+    return;
+  }
+
+  poolStore.recordPoolEntry(poolId, playerPubkey, txSignature || "");
+
+  // Generate anti-cheat token ready for the game run
+  const { runToken, startTime } = runService.startRun(playerPubkey, poolId, 25);
+
+  res.json({
+    success: true,
+    message: "Entry confirmed in weekly pool.",
+    roundId: poolId,
+    playerPubkey,
+    txSignature,
+    runToken,
+    startTime,
+  });
+}
+
+export function handleSubmitRun(req: Request, res: Response) {
+  const { roundId, playerPubkey, timeMs, won, runToken, coinsCollected } = req.body;
+  const poolId = typeof roundId === "number" ? roundId : parseInt(String(roundId || "1"), 10);
+  const isWin = typeof won === "boolean" ? won : true;
+  const reportedTime = typeof timeMs === "number" ? timeMs : 0;
+  const coins = typeof coinsCollected === "number" ? coinsCollected : 25;
+
+  let verifiedTime = reportedTime;
+
+  // If runToken is provided, verify anti-cheat HMAC
+  if (runToken) {
+    const verification = runService.finishRun(runToken, reportedTime, coins);
+    if (!verification.valid) {
+      res.status(422).json({
+        success: false,
+        error: "Anti-cheat verification failed.",
+        reason: verification.reason,
+      });
+      return;
+    }
+    if (verification.verifiedTimeMs) {
+      verifiedTime = verification.verifiedTimeMs;
+    }
+  }
+
+  const result = poolStore.recordRunResult(poolId, playerPubkey || "Player", isWin, verifiedTime);
+
+  res.json({
+    success: true,
+    verified: true,
+    playerPubkey,
+    roundId: poolId,
+    timeMs: verifiedTime,
+    projectedRank: result.rank,
+    bestTimeMs: result.bestTimeMs,
+    poolStats: result.poolStats,
+    message: "Run recorded in weekly pool standings.",
+  });
+}
+
 /**
  * POST /api/runs/start - Starts an anti-cheat protected game run
- * Body: { playerPubkey: string, roundId: number }
  */
 router.post("/start", (req: Request, res: Response) => {
   const { playerPubkey, roundId } = req.body;
@@ -18,7 +82,6 @@ router.post("/start", (req: Request, res: Response) => {
 
   const poolId = typeof roundId === "number" ? roundId : 1;
   const { runToken, startTime } = runService.startRun(playerPubkey, poolId, 25);
-  store.registerTicket(poolId, playerPubkey);
 
   res.json({
     success: true,
@@ -30,133 +93,8 @@ router.post("/start", (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/runs/finish - Verifies and records run completion
- * Body: { runToken: string, reportedTimeMs: number, coinsCollected: number }
+ * POST /api/runs/finish - Verifies and records run completion directly into pool leaderboard
  */
-router.post("/finish", (req: Request, res: Response) => {
-  const { runToken, reportedTimeMs, coinsCollected } = req.body;
-
-  if (!runToken || typeof reportedTimeMs !== "number") {
-    res.status(400).json({ success: false, error: "runToken and reportedTimeMs are required." });
-    return;
-  }
-
-  const coins = typeof coinsCollected === "number" ? coinsCollected : 25;
-  const verification = runService.finishRun(runToken, reportedTimeMs, coins);
-
-  if (!verification.valid) {
-    res.status(422).json({
-      success: false,
-      error: "Anti-cheat verification failed.",
-      reason: verification.reason,
-    });
-    return;
-  }
-
-  const timeMs = verification.verifiedTimeMs || reportedTimeMs;
-  const poolId = verification.roundId || 1;
-  const playerPubkey = verification.playerPubkey || "Unknown";
-
-  const { projectedRank } = store.addRun({
-    id: `${playerPubkey}-${Date.now()}`,
-    roundId: poolId,
-    playerPubkey,
-    timeMs,
-    timeFormatted: formatTime(timeMs),
-    won: true,
-    timestamp: Date.now(),
-  });
-
-  res.json({
-    success: true,
-    verified: true,
-    playerPubkey,
-    roundId: poolId,
-    verifiedTimeMs: timeMs,
-    projectedRank,
-    message: "Run verified and recorded in weekly community pool.",
-  });
-});
-
-/**
- * POST /api/enter - Registers entry into a pool round
- * Body: { roundId: number, playerPubkey: string, stake?: string }
- */
-export function handleEnterPool(req: Request, res: Response) {
-  const { playerPubkey, roundId, stake } = req.body;
-
-  if (!playerPubkey || typeof playerPubkey !== "string") {
-    res.status(400).json({ success: false, error: "playerPubkey is required." });
-    return;
-  }
-
-  const poolId = typeof roundId === "number" ? roundId : parseInt(roundId || "1", 10);
-  const { runToken, startTime } = runService.startRun(playerPubkey, poolId, 25);
-  store.registerTicket(poolId, playerPubkey);
-
-  res.json({
-    success: true,
-    message: "Ticket registered successfully. Good luck!",
-    runToken,
-    startTime,
-    roundId: poolId,
-    playerPubkey,
-    stake: stake || "",
-  });
-}
-
-/**
- * POST /api/submit-run - Records completed run time from client
- * Body: { roundId: number, playerPubkey: string, timeMs: number, timeFormatted?: string, won?: boolean, runToken?: string, coinsCollected?: number }
- */
-export function handleSubmitRun(req: Request, res: Response) {
-  const { roundId, playerPubkey, timeMs, timeFormatted, won, runToken, coinsCollected } = req.body;
-
-  if (!playerPubkey || typeof timeMs !== "number") {
-    res.status(400).json({
-      success: false,
-      error: "playerPubkey and timeMs are required.",
-    });
-    return;
-  }
-
-  const poolId = typeof roundId === "number" ? roundId : parseInt(roundId || "1", 10);
-
-  // If a runToken was provided, attempt anti-cheat validation
-  if (runToken && typeof runToken === "string") {
-    const coins = typeof coinsCollected === "number" ? coinsCollected : 25;
-    const verification = runService.finishRun(runToken, timeMs, coins);
-    if (!verification.valid) {
-      console.warn(`[AntiCheat Warning] Run verification failed for ${playerPubkey}: ${verification.reason}`);
-    }
-  }
-
-  const { projectedRank } = store.addRun({
-    id: `${playerPubkey}-${Date.now()}`,
-    roundId: poolId,
-    playerPubkey,
-    timeMs,
-    timeFormatted: timeFormatted || formatTime(timeMs),
-    won: won !== false,
-    timestamp: Date.now(),
-  });
-
-  res.json({
-    success: true,
-    verified: true,
-    message: "Run recorded on leaderboard!",
-    playerPubkey,
-    roundId: poolId,
-    timeMs,
-    timeFormatted: timeFormatted || formatTime(timeMs),
-    won: won !== false,
-    projectedRank,
-    timestamp: Date.now(),
-  });
-}
-
-router.post("/enter", handleEnterPool);
-router.post("/submit", handleSubmitRun);
-router.post("/submit-run", handleSubmitRun);
+router.post("/finish", handleSubmitRun);
 
 export default router;
