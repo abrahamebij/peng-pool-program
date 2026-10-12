@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { runService } from "../services/runService";
+import { store, formatTime } from "../store";
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.post("/start", (req: Request, res: Response) => {
 
   const poolId = typeof roundId === "number" ? roundId : 1;
   const { runToken, startTime } = runService.startRun(playerPubkey, poolId, 25);
+  store.registerTicket(poolId, playerPubkey);
 
   res.json({
     success: true,
@@ -51,18 +53,25 @@ router.post("/finish", (req: Request, res: Response) => {
     return;
   }
 
-  // Calculate projected rank (simple benchmark: 28s is ~rank 1, 35s is ~rank 5)
   const timeMs = verification.verifiedTimeMs || reportedTimeMs;
-  let projectedRank = 1;
-  if (timeMs > 34000) projectedRank = 5;
-  else if (timeMs > 31000) projectedRank = 3;
-  else if (timeMs > 28000) projectedRank = 2;
+  const poolId = verification.roundId || 1;
+  const playerPubkey = verification.playerPubkey || "Unknown";
+
+  const { projectedRank } = store.addRun({
+    id: `${playerPubkey}-${Date.now()}`,
+    roundId: poolId,
+    playerPubkey,
+    timeMs,
+    timeFormatted: formatTime(timeMs),
+    won: true,
+    timestamp: Date.now(),
+  });
 
   res.json({
     success: true,
     verified: true,
-    playerPubkey: verification.playerPubkey,
-    roundId: verification.roundId,
+    playerPubkey,
+    roundId: poolId,
     verifiedTimeMs: timeMs,
     projectedRank,
     message: "Run verified and recorded in weekly community pool.",
@@ -83,6 +92,7 @@ export function handleEnterPool(req: Request, res: Response) {
 
   const poolId = typeof roundId === "number" ? roundId : parseInt(roundId || "1", 10);
   const { runToken, startTime } = runService.startRun(playerPubkey, poolId, 25);
+  store.registerTicket(poolId, playerPubkey);
 
   res.json({
     success: true,
@@ -121,12 +131,15 @@ export function handleSubmitRun(req: Request, res: Response) {
     }
   }
 
-  // Calculate projected rank (benchmark: ~27-28s is rank 1-2, ~30-32s is rank 3-5, >35s is rank 5+)
-  let projectedRank = 1;
-  if (timeMs > 35000) projectedRank = 8;
-  else if (timeMs > 32000) projectedRank = 5;
-  else if (timeMs > 29500) projectedRank = 3;
-  else if (timeMs > 28000) projectedRank = 2;
+  const { projectedRank } = store.addRun({
+    id: `${playerPubkey}-${Date.now()}`,
+    roundId: poolId,
+    playerPubkey,
+    timeMs,
+    timeFormatted: timeFormatted || formatTime(timeMs),
+    won: won !== false,
+    timestamp: Date.now(),
+  });
 
   res.json({
     success: true,
@@ -135,7 +148,7 @@ export function handleSubmitRun(req: Request, res: Response) {
     playerPubkey,
     roundId: poolId,
     timeMs,
-    timeFormatted: timeFormatted || `${(timeMs / 1000).toFixed(2)}s`,
+    timeFormatted: timeFormatted || formatTime(timeMs),
     won: won !== false,
     projectedRank,
     timestamp: Date.now(),
